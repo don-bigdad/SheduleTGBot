@@ -52,11 +52,13 @@ def shedule_answer(callback):
                              "Введіть будь ласка ваш розклад,бажано у форматі (Час-Назва-Ім'я викладача-Аудиторія)"
                              "назву пар чередувати через зап'яту-почнемо з понеділка.")
             bot.send_message(callback.message.chat.id, "Розклад для понеділка:")
+
             @bot.message_handler()
             def set_my_week_shedule(message):
                 print(message.text)
                 cursor.execute("""UPDATE users SET monday = %s WHERE username = %s""", (message.text,message.from_user.username,))
                 conn.commit()
+
     elif callback.data == "Видалити":
         cursor.execute('''SELECT username FROM users''')
         query_results = cursor.fetchall()
