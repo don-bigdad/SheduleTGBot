@@ -1,6 +1,7 @@
 import telebot
 import datetime,calendar
 import psycopg2
+import asyncio
 
 bot = telebot.TeleBot("5833363637:AAGG2abyu-ZA8D21n8o3Y2NrJ4bzAY_Pzss")
 
@@ -22,20 +23,67 @@ def send_welcome(message):
     msg = bot.send_message(message.chat.id, 'Привіт! Я бот котрий допоможе тобі зробити твоє студентське життя '
                                             'трішечки легше!Почнемо?', reply_markup=markup)
 
-@bot.message_handler(commands=["Пары",])
+
+weekdays = ['monday','thuesday', 'wednesday', 'thursday',
+             'Friday', 'saturday']
+def monday(message):
+    cursor.execute('''INSERT INTO users (username,monday,user_id)  VALUES(%s,%s,%s)''',
+                   (message.from_user.username,message.text,message.from_user.id))
+    conn.commit()
+    tuesday_message = bot.send_message(message.chat.id, 'Розклад для Вівторка:')
+    bot.register_next_step_handler(tuesday_message, tuesday)
+def tuesday(message):
+    cursor.execute('''UPDATE users SET tuesday = %s WHERE username = %s''',
+                   (message.text,message.from_user.username))
+    conn.commit()
+    wednesday_message = bot.send_message(message.chat.id, 'Розклад для Середи:')
+    bot.register_next_step_handler(wednesday_message, wednesday)
+
+def wednesday(message):
+    cursor.execute('''UPDATE users SET wednesday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+    thursday_message = bot.send_message(message.chat.id, 'Розклад для Четверга:')
+    bot.register_next_step_handler(thursday_message, thursday)
+
+def thursday(message):
+    cursor.execute('''UPDATE users SET thursday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+    thursday_message = bot.send_message(message.chat.id, "Розклад для П'ятниці:")
+    bot.register_next_step_handler(thursday_message, friday)
+
+def friday(message):
+    cursor.execute('''UPDATE users SET friday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    answer_yes = telebot.types.InlineKeyboardButton(text="Так", callback_data="Так")
+    answer_no = telebot.types.InlineKeyboardButton(text="Ні", callback_data="Ні")
+    markup.add(answer_yes, answer_no)
+    bot.send_message(message.chat.id, 'Чи є в тебе заняття в Субботу?', reply_markup=markup)
+def saturday(message):
+    cursor.execute('''UPDATE users SET saturday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+    bot.send_message(message.chat.id,"Вітаю ви завершили налаштування свого розкладу!\n Якщо бажаєте його змінити впишіть команду /start")
+@bot.message_handler(commands=['Пары',])
 def get_today_shedule(message):
     user_message =  message.text
-    if user_message.title() in ['Пари','Пары','Сьогодні','Уроки','Розклад']:
-        today = calendar.day_name[datetime.date.today().weekday()].lower()
-        translate = {'monday':'Понеділок','thuesday':'Вівторок','wednesday':'Середа','thursday':'Четверг','Friday':"П'ятниця",'saturday':'Суббота'}
-        cursor.execute("""SELECT username FROM users""")
-        query_results = cursor.fetchall()
-        for username in text.split():
-            if username == message.from_user.username:
-                bot.send_message(message.chat.id,f'your username is {username}' )
-                bot.send_message(message.chat.id,f'Розклад на сьогодні({translate[today]}):')
-    else:
-        bot.send_message(message.chat.id,'Введіть ключове слово щоб дізнатись розклад на сьогодні,ключові слова:\nПари,Пары,,Cьогодні,Уроки,Розклад')
+    today = calendar.day_name[datetime.date.today().weekday()].lower()
+    translate = {'monday':'Понеділок','tuesday':'Вівторок','wednesday':'Середа','thursday':'Четверг','Friday':"П'ятниця",'saturday':'Суббота'}
+    cursor.execute("""SELECT username FROM users""")
+    query_results = cursor.fetchall()
+    for username in text.split():
+        if username == message.from_user.username:
+            bot.send_message(message.chat.id,f'your username is {username}' )
+            bot.send_message(message.chat.id,f'Розклад на сьогодні({translate[today]}):')
+            cursor.execute(f"SELECT {today} FROM users WHERE username = '{message.from_user.username}'")
+            query_results = cursor.fetchall()
+            user_shedule = '\n'.join([', '.join(map(str, x)) for x in query_results])
+            bot.send_message(message.chat.id,user_shedule)
+
+    # bot.send_message(message.chat.id,'Введіть ключове слово щоб дізнатись розклад на сьогодні,ключові слова:\nПари,Пары,,Cьогодні,Уроки,Розклад')
 
 @bot.callback_query_handler(func=lambda callback: callback.data)
 def shedule_answer(callback):
@@ -46,29 +94,29 @@ def shedule_answer(callback):
         if callback.from_user.username in text.split():
             bot.send_message(callback.message.chat.id,"Ви вже маєте розклад!Спробуйте ввести Пари,чи розклад!")
         else:
-            cursor.execute('''INSERT INTO users (username)  VALUES(%s)''', (callback.from_user.username,))
-            conn.commit()
             bot.send_message(callback.message.chat.id,
-                             "Введіть будь ласка ваш розклад,бажано у форматі (Час-Назва-Ім'я викладача-Аудиторія)"
-                             "назву пар чередувати через зап'яту-почнемо з понеділка.")
-            bot.send_message(callback.message.chat.id, "Розклад для понеділка:")
-
-            @bot.message_handler()
-            def set_my_week_shedule(message):
-                print(message.text)
-                cursor.execute("""UPDATE users SET monday = %s WHERE username = %s""", (message.text,message.from_user.username,))
-                conn.commit()
-
+                             "Введіть будь ласка ваш розклад,бажано у форматі (Час-Назва предмету-Ім'я викладача-Аудиторія)"
+                             "-почнемо з понеділка.")
+            monday_message = bot.send_message(callback.message.chat.id, 'Розклад для Понеділка:')
+            bot.register_next_step_handler(monday_message,monday)
+            # cursor.execute(f"INSERT INTO users (monday) WHERE username = {callback.from_user.username}  VALUES(%s), 'something'")
+            # conn.commit()
+    elif callback.data == "Так":
+        saturday_message = bot.send_message(callback.message.chat.id, 'Розклад для Субботи:')
+        bot.register_next_step_handler(saturday_message, saturday)
+    elif callback.data == "Ні":
+        bot.send_message(callback.message.chat.id,
+                         "Вітаю ви завершили налаштування свого розкладу!\n Якщо бажаєте його змінити впишіть команду /start")
     elif callback.data == "Видалити":
         cursor.execute('''SELECT username FROM users''')
         query_results = cursor.fetchall()
         text = '\n'.join([', '.join(map(str, x)) for x in query_results])
         if not callback.from_user.username in text.split():
-            bot.send_message(callback.message.chat.id,'У користувача немає розкладу,на жаль видаляти нічого!')
+            bot.send_message(callback.message.chat.id, 'У користувача немає розкладу,на жаль видаляти нічого!')
         else:
-            cursor.execute('''DELETE FROM users WHERE username = '''+"'"+callback.from_user.username+"'")
+            cursor.execute('''DELETE FROM users WHERE username = ''' + "'" + callback.from_user.username + "'")
             conn.commit()
-            bot.send_message(callback.message.chat.id,'Розклад видалено')
+            bot.send_message(callback.message.chat.id, 'Розклад видалено')
     elif callback.data == "Змінити":
         days = telebot.types.InlineKeyboardMarkup(row_width=1)
         Monday = telebot.types.InlineKeyboardButton(text="Змінити понеділок", callback_data="Понеділок")
@@ -77,21 +125,27 @@ def shedule_answer(callback):
         Trusday = telebot.types.InlineKeyboardButton(text="Змінити Четверг", callback_data="Четверг")
         Friday = telebot.types.InlineKeyboardButton(text="Змінити П'ятницю", callback_data="П'ятниця")
         Saturday = telebot.types.InlineKeyboardButton(text="Змінити Субботу", callback_data="Суббота")
-        days.add(Monday,Tuesday,Wednesday,Trusday,Friday,Saturday)
-        bot.send_message(callback.message.chat.id,"Який день ви хочете змінити?",reply_markup=days,)
+        days.add(Monday, Tuesday, Wednesday, Trusday, Friday, Saturday)
+        bot.send_message(callback.message.chat.id, "Який день ви хочете змінити?", reply_markup=days, )
         return bot.callback_query_handler
-    elif callback.data =="Понеділок":
+    elif callback.data == "Понеділок":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для понеділка:")
     elif callback.data == "Вівторок":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для Вівторка:")
-    elif callback.data =="Середа":
+    elif callback.data == "Середа":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для Середи:")
-    elif callback.data =="Четверг":
+    elif callback.data == "Четверг":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для Четверга:")
-    elif callback.data =="П'ятниця":
+    elif callback.data == "П'ятниця":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для П'ятниці;")
-    elif callback.data =="Суббота":
+    elif callback.data == "Суббота":
         bot.send_message(callback.message.chat.id, "Введіть новий розклад для Суботи:")
+
+# @bot.message_handler()
+# def set_my_week_shedule(message):
+#     cursor.execute("""UPDATE users SET monday = %s WHERE username = %s""", (message.text,message.from_user.username,))
+#     conn.commit()
+
 
 
 bot.polling(non_stop=True)
