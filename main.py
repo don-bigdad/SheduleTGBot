@@ -13,6 +13,7 @@ query_results = cursor.fetchall()
 text = '\n'.join([', '.join(map(str, x)) for x in query_results])
 print(str(text))
 
+
 @bot.message_handler(commands=['help', 'start'])
 def send_welcome(message):
     markup = telebot.types.InlineKeyboardMarkup(row_width=1)
@@ -24,20 +25,21 @@ def send_welcome(message):
                                             'трішечки легше!Почнемо?', reply_markup=markup)
 
 
-weekdays = ['monday','thuesday', 'wednesday', 'thursday',
-             'Friday', 'saturday']
 def monday(message):
     cursor.execute('''INSERT INTO users (username,monday,user_id)  VALUES(%s,%s,%s)''',
                    (message.from_user.username,message.text,message.from_user.id))
     conn.commit()
     tuesday_message = bot.send_message(message.chat.id, 'Розклад для Вівторка:')
     bot.register_next_step_handler(tuesday_message, tuesday)
+
+
 def tuesday(message):
     cursor.execute('''UPDATE users SET tuesday = %s WHERE username = %s''',
                    (message.text,message.from_user.username))
     conn.commit()
     wednesday_message = bot.send_message(message.chat.id, 'Розклад для Середи:')
     bot.register_next_step_handler(wednesday_message, wednesday)
+
 
 def wednesday(message):
     cursor.execute('''UPDATE users SET wednesday = %s WHERE username = %s''',
@@ -46,12 +48,14 @@ def wednesday(message):
     thursday_message = bot.send_message(message.chat.id, 'Розклад для Четверга:')
     bot.register_next_step_handler(thursday_message, thursday)
 
+
 def thursday(message):
     cursor.execute('''UPDATE users SET thursday = %s WHERE username = %s''',
                    (message.text, message.from_user.username))
     conn.commit()
     thursday_message = bot.send_message(message.chat.id, "Розклад для П'ятниці:")
     bot.register_next_step_handler(thursday_message, friday)
+
 
 def friday(message):
     cursor.execute('''UPDATE users SET friday = %s WHERE username = %s''',
@@ -62,11 +66,51 @@ def friday(message):
     answer_no = telebot.types.InlineKeyboardButton(text="Ні", callback_data="Ні")
     markup.add(answer_yes, answer_no)
     bot.send_message(message.chat.id, 'Чи є в тебе заняття в Субботу?', reply_markup=markup)
+
+
 def saturday(message):
     cursor.execute('''UPDATE users SET saturday = %s WHERE username = %s''',
                    (message.text, message.from_user.username))
     conn.commit()
     bot.send_message(message.chat.id,"Вітаю ви завершили налаштування свого розкладу!\n Якщо бажаєте його змінити впишіть команду /start")
+
+
+def update_monday(message):
+    cursor.execute('''UPDATE users SET monday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
+def update_tuesday(message):
+    cursor.execute('''UPDATE users SET thuesday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
+def update_wednesday(message):
+    cursor.execute('''UPDATE users SET wednesday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
+def update_thursday(message):
+    cursor.execute('''UPDATE users SET thursday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
+def update_friday(message):
+    cursor.execute('''UPDATE users SET friday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
+def update_saturday(message):
+    cursor.execute('''UPDATE users SET saturday = %s WHERE username = %s''',
+                   (message.text, message.from_user.username))
+    conn.commit()
+
+
 @bot.message_handler(commands=['Пары',])
 def get_today_shedule(message):
     user_message =  message.text
@@ -83,7 +127,6 @@ def get_today_shedule(message):
             user_shedule = '\n'.join([', '.join(map(str, x)) for x in query_results])
             bot.send_message(message.chat.id,user_shedule)
 
-    # bot.send_message(message.chat.id,'Введіть ключове слово щоб дізнатись розклад на сьогодні,ключові слова:\nПари,Пары,,Cьогодні,Уроки,Розклад')
 
 @bot.callback_query_handler(func=lambda callback: callback.data)
 def shedule_answer(callback):
@@ -129,23 +172,23 @@ def shedule_answer(callback):
         bot.send_message(callback.message.chat.id, "Який день ви хочете змінити?", reply_markup=days, )
         return bot.callback_query_handler
     elif callback.data == "Понеділок":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для понеділка:")
+        update_monday_message = bot.send_message(callback.message.chat.id, 'Введіть новий розклад для Понеділка:')
+        bot.register_next_step_handler(update_monday_message, update_monday)
     elif callback.data == "Вівторок":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для Вівторка:")
+        update_tuesday_message = bot.send_message(callback.message.chat.id, 'Введіть новий розклад для Вівторка:')
+        bot.register_next_step_handler(update_tuesday_message, update_tuesday)
     elif callback.data == "Середа":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для Середи:")
+        update_wednesday_message = bot.send_message(callback.message.chat.id, 'Введіть новий розклад для Середи:')
+        bot.register_next_step_handler(update_wednesday_message, update_wednesday)
     elif callback.data == "Четверг":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для Четверга:")
+        update_thursday_message = bot.send_message(callback.message.chat.id, 'Введіть новий розклад для Четверга:')
+        bot.register_next_step_handler(update_thursday_message, update_thursday)
     elif callback.data == "П'ятниця":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для П'ятниці;")
+        update_friday_message = bot.send_message(callback.message.chat.id, "Введіть новий розклад для П'ятниці:")
+        bot.register_next_step_handler(update_friday_message, update_thursday)
     elif callback.data == "Суббота":
-        bot.send_message(callback.message.chat.id, "Введіть новий розклад для Суботи:")
-
-# @bot.message_handler()
-# def set_my_week_shedule(message):
-#     cursor.execute("""UPDATE users SET monday = %s WHERE username = %s""", (message.text,message.from_user.username,))
-#     conn.commit()
-
+        update_saturday_message = bot.send_message(callback.message.chat.id, "Введіть новий розклад для Cубботи:")
+        bot.register_next_step_handler(update_saturday_message, update_thursday)
 
 
 bot.polling(non_stop=True)
