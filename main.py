@@ -1,7 +1,7 @@
 import telebot
 import datetime, calendar
 import psycopg2
-import asyncio
+
 
 bot = telebot.TeleBot("5833363637:AAGG2abyu-ZA8D21n8o3Y2NrJ4bzAY_Pzss")
 
@@ -35,23 +35,6 @@ weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 translate_weekdays_ukr = ["Понеділок", "Вівторок", "Середа", "Четверг", "П'ятниця", "Суббота"]
 
 
-@bot.message_handler(commands=["Розклад"])
-def get_total_schedule(message):
-    cursor.execute('''SELECT username FROM users''')
-    query_results = cursor.fetchall()
-    text = '\n'.join([', '.join(map(str, x)) for x in query_results])
-    if message.from_user.username in text.split():
-        text = ""
-        total_shedule = ""
-        for i in range(6):
-            cursor.execute(f"SELECT {weekdays[i]} FROM users where username = '{message.from_user.username}'")
-            query_results = cursor.fetchall()
-            text = '\n'.join([', '.join(map(str, x)) for x in query_results])
-            total_shedule += f"{translate_weekdays_ukr[i]}:" + text + "\n"
-        bot.send_message(message.chat.id, total_shedule)
-    else:
-        bot.send_message(message.chat.id,
-                         "Нажаль я не знайшов вашого розкладу.\nСтворіть його будь ласка написавши команду /start")
 
 
 def monday(message):
@@ -102,7 +85,9 @@ def saturday(message):
                    (message.text, message.from_user.username))
     conn.commit()
     bot.send_message(message.chat.id,
-                     "Вітаю ви завершили налаштування свого розкладу!\n Якщо бажаєте його змінити впишіть команду /start")
+                     "Вітаю ви завершили налаштування свого розкладу!\nЯкщо бажаєте його змінити впишіть команду /start " +
+                         "Введіть ключове слово 'Пари',щоб дізнатись розклад на сьогодні.\nЩоб " +
+                         "дізнатись загальний розклад введіть ключове слово 'Розклад'")
 
 
 def update_monday(message):
@@ -142,14 +127,15 @@ def update_saturday(message):
 
 
 @bot.message_handler()
-def get_today_shedule(message):
-    if str(message.text).lower() in ["пари","уроки"]:
+def get_shedule(message):
+    if str(message.text).lower() in ["пари","уроки","пары"]:
         user_message = message.text
         today = calendar.day_name[datetime.date.today().weekday()].lower()
         translate = {'monday': 'Понеділок', 'tuesday': 'Вівторок', 'wednesday': 'Середа', 'thursday': 'Четверг',
                      'Friday': "П'ятниця", 'saturday': 'Суббота'}
         cursor.execute("""SELECT username FROM users""")
         query_results = cursor.fetchall()
+        text = '\n'.join([', '.join(map(str, x)) for x in query_results])
         for username in text.split():
             if username == message.from_user.username:
                 bot.send_message(message.chat.id, f'Розклад на сьогодні({translate[today]}):')
@@ -157,8 +143,25 @@ def get_today_shedule(message):
                 query_results = cursor.fetchall()
                 user_shedule = '\n'.join([', '.join(map(str, x)) for x in query_results])
                 bot.send_message(message.chat.id, user_shedule)
+    elif str(message.text).lower() in ["розклад"]:
+        cursor.execute('''SELECT username FROM users''')
+        query_results = cursor.fetchall()
+        text = '\n'.join([', '.join(map(str, x)) for x in query_results])
+        if message.from_user.username in text.split():
+            text = ""
+            total_shedule = ""
+            for i in range(6):
+                cursor.execute(f"SELECT {weekdays[i]} FROM users where username = '{message.from_user.username}'")
+                query_results = cursor.fetchall()
+                text = '\n'.join([', '.join(map(str, x)) for x in query_results])
+                total_shedule += f"{translate_weekdays_ukr[i]}:" + text + "\n"
+            bot.send_message(message.chat.id, total_shedule)
+        else:
+            bot.send_message(message.chat.id,
+                             "Нажаль я не знайшов вашого розкладу.\nСтворіть його будь ласка написавши команду /start")
     else:
-        bot.send_message(message.chat.id, "Введіть ключове слово Пари,щоб дізнатись розкладж на сьогодні.")
+        bot.send_message(message.chat.id, "Введіть ключове слово Пари,щоб дізнатись розклад на сьогодні.\nЩоб "
+                                          "дізнатись загальний розклад введіть ключове слово 'Розклад'")
 
 
 @bot.callback_query_handler(func=lambda callback: callback.data)
@@ -180,7 +183,10 @@ def shedule_answer(callback):
         bot.register_next_step_handler(saturday_message, saturday)
     elif callback.data == "Ні":
         bot.send_message(callback.message.chat.id,
-                         "Вітаю ви завершили налаштування свого розкладу!\nЯкщо бажаєте його змінити впишіть команду /start")
+                         "Вітаю ви завершили налаштування свого розкладу!\nЯкщо бажаєте його змінити впишіть команду /start " +
+                         "Введіть ключове слово 'Пари',щоб дізнатись розклад на сьогодні.\nЩоб " +
+                         "дізнатись загальний розклад введіть ключове слово 'Розклад'"
+                         )
     elif callback.data == "Видалити":
         cursor.execute('''SELECT username FROM users''')
         query_results = cursor.fetchall()
@@ -216,10 +222,10 @@ def shedule_answer(callback):
         bot.register_next_step_handler(update_thursday_message, update_thursday)
     elif callback.data == "П'ятниця":
         update_friday_message = bot.send_message(callback.message.chat.id, "Введіть новий розклад для П'ятниці:")
-        bot.register_next_step_handler(update_friday_message, update_thursday)
+        bot.register_next_step_handler(update_friday_message, update_friday)
     elif callback.data == "Суббота":
         update_saturday_message = bot.send_message(callback.message.chat.id, "Введіть новий розклад для Cубботи:")
-        bot.register_next_step_handler(update_saturday_message, update_thursday)
+        bot.register_next_step_handler(update_saturday_message, update_saturday)
 
 
 bot.polling(non_stop=True)
